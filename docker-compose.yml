@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  videogen:
+    # Build Docker image from Dockerfile in current directory
+    build: .
+    
+    # Set container name for easier management
+    container_name: videogen-app
+    
+    # Map port 9000 on host to port 9000 in container
+    # Format: "host_port:container_port"
+    ports:
+      - "9000:9000"
+    
+    # Mount volumes to persist data and allow file sharing
+    # This allows uploads and videos to persist even if container is removed
+    volumes:
+      # Mount local uploads folder to container uploads folder
+      - ./uploads:/app/uploads
+      # Mount local videos folder to container videos folder
+      - ./videos:/app/videos
+    
+    # Set environment variables
+    environment:
+      # Set Flask to production mode for better performance
+      - FLASK_ENV=production
+    
+    # Restart policy: automatically restart container unless manually stopped
+    # This ensures the service stays running even after VPS reboot
+    restart: unless-stopped
+    
+    # Resource limits and reservations (adjust based on your VPS specs)
+    deploy:
+      resources:
+        # Maximum resources container can use
+        limits:
+          cpus: '2'      # Maximum 2 CPU cores
+          memory: 2G     # Maximum 2GB RAM
+        # Minimum guaranteed resources
+        reservations:
+          cpus: '1'      # Reserve at least 1 CPU core
+          memory: 1G     # Reserve at least 1GB RAM
