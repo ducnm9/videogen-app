@@ -1,4 +1,7 @@
-version: '3.8'
+networks:
+  lan:
+    name: lan_net
+    external: true
 
 services:
   videogen:
@@ -12,7 +15,9 @@ services:
     # Format: "host_port:container_port"
     ports:
       - "9000:9000"
-    
+    # Network configuration: connect to existing 'lan_net' network
+    networks:
+      - lan
     # Mount volumes to persist data and allow file sharing
     # This allows uploads and videos to persist even if container is removed
     volumes:

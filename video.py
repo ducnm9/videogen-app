@@ -5,7 +5,8 @@ import requests
 from flask import Flask, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 from flask_cors import CORS
-from PIL import Image
+from PIL import Image, ImageOps
+from io import BytesIO
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -24,6 +25,57 @@ os.makedirs(VIDEO_FOLDER, exist_ok=True)
 
 # Configure the Flask app with upload folder path
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+
+def resize_image_exact(image_url: str, new_width: int, new_height: int, output_filename: str = "resized_exact.jpg") -> str | None:
+    """
+    Downloads an image from a URL and resizes it to the exact new_width and new_height.
+    Note: This might distort the image if the aspect ratio is not maintained.
+
+    :param image_url: The URL of the input image.
+    :param new_width: The desired new width in pixels.
+    :param new_height: The desired new height in pixels.
+    :param output_filename: The filename to save the resized image.
+    :return: The saved file path or None if an error occurs.
+    """
+
+    output_filename = str(uuid.uuid4()) + "_" + output_filename
+
+    try:
+        # 1. Download the image data
+        response = requests.get(image_url)
+        response.raise_for_status() # Check for HTTP errors
+
+        # 2. Open the image using Pillow from byte content
+        image_data = BytesIO(response.content)
+        img = Image.open(image_data)
+
+        # 3. Resize the image to the exact dimensions
+        new_size = (new_width, new_height)
+        # Use Image.Resampling.LANCZOS for high-quality resampling, especially for downscaling
+        # resized_img = img.resize(new_size, Image.Resampling.LANCZOS)
+        cropped_and_resized_img = ImageOps.fit(
+            img,
+            new_size,
+            method=Image.Resampling.LANCZOS,  # Use LANCZOS for best quality
+            centering=(0.5, 0.5)  # Centering tuple (x, y) - 0.5 means center
+        )
+        
+        # 4. Save the resized image
+        output_format = img.format if img.format else "JPEG"
+        cropped_and_resized_img.save(output_filename, format=output_format)
+
+        print(f"Image successfully resized and saved at: {output_filename}")
+        print(f"Original size: {img.size}, New size: {cropped_and_resized_img.size}")
+
+        return output_filename
+    
+    except requests.exceptions.RequestException as e:
+        print(f"Error downloading image: {e}")
+        return None
+    except Exception as e:
+        print(f"Error processing image: {e}")
+        return None
 
 
 # Function to check if file extension is allowed
@@ -212,8 +264,8 @@ def convert_to_video():
         cmd = [
             'ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', img_sequence_file,
             '-i', audio_path,
-            '-c:v', 'libx264', '-preset', 'medium', '-r', '30', '-pix_fmt', 'yuv420p',
-            '-vf', 'scale=1280:720', '-t', str(audio_duration), '-threads', '4',
+            '-c:v', 'libx264', '-preset', 'medium', '-r', '25', '-pix_fmt', 'yuv420p',
+            '-vf', 'scale=720:1280', '-t', str(audio_duration), '-threads', '4',
             '-max_muxing_queue_size', '1024', video_path
         ]
         # Execute FFmpeg command
@@ -293,6 +345,37 @@ def delete_video():
             "message": f"Failed to delete video file: {str(e)}"
         }), 500
 
+# make router get resize-image
+@app.route('/resize-image', methods=['GET'])
+def resize_image():
+    """
+    API endpoint to resize an image to exact dimensions.
+
+    Query parameters:
+    - width: The target width (in pixels)
+    - height: The target height (in pixels)
+
+    Returns:
+        JSON response with status message
+    """
+    width = request.args.get('width', type=int)
+    height = request.args.get('height', type=int)
+    url = request.args.get('url', type=str)
+
+    # Validate required parameters
+    if not width or not height or not url:
+        return jsonify({
+            "status": "error",
+            "message": "Both width and height are required."
+        }), 400
+
+    result = resize_image_exact(url, width, height)
+    if not result:
+        return jsonify({
+            "status": "error",
+            "message": "Failed to resize image."
+        }), 500
+    return send_file(result)
 
 # Run the Flask application
 if __name__ == '__main__':
