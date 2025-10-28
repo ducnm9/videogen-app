@@ -169,9 +169,9 @@ def download_file(url, extension, folder):
                 for chunk in response.iter_content(1024):
                     file.write(chunk)
 
-            # Resize if it's an image to ensure compatibility with FFmpeg
-            if extension in {"jpg", "png", "jpeg", "webp"}:
-                resize_image(file_path)
+            # # Resize if it's an image to ensure compatibility with FFmpeg
+            # if extension in {"jpg", "png", "jpeg", "webp"}:
+            #     resize_image(file_path)
 
             return file_path
     except Exception as e:
@@ -352,14 +352,14 @@ def resize_image():
     API endpoint to resize an image to exact dimensions.
 
     Query parameters:
-    - width: The target width (in pixels)
-    - height: The target height (in pixels)
+    - w: The target width (in pixels)
+    - h: The target height (in pixels)
 
     Returns:
         JSON response with status message
     """
-    width = request.args.get('width', type=int)
-    height = request.args.get('height', type=int)
+    width = request.args.get('w', type=int)
+    height = request.args.get('h', type=int)
     url = request.args.get('url', type=str)
 
     # Validate required parameters
